@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -15,6 +16,7 @@ import type { CompositeScreenProps } from '@react-navigation/native';
 import TopActions from '../components/TopActions';
 import { translations } from '../constants/translations';
 import { useApp } from '../context/AppContext';
+import { savePost } from '../database/favorites';
 import { getPosts } from '../services/newsApi';
 import type { MainTabParamList, RootStackParamList } from '../types/navigation';
 import type { NewsScreenState, Post } from '../types/news';
@@ -93,10 +95,37 @@ export default function NewsScreen(_props: NewsScreenProps) {
         }
       ]}
     >
-      <Text style={[styles.postTitle, { color: theme.colors.text }]}>{item.title}</Text>
-      <Text style={[styles.postBody, { color: theme.colors.mutedText }]} numberOfLines={3}>
-        {item.body}
-      </Text>
+      <View style={styles.cardRow}>
+        <View style={styles.cardContent}>
+          <Text style={[styles.postTitle, { color: theme.colors.text }]}>{item.title}</Text>
+          <Text style={[styles.postBody, { color: theme.colors.mutedText }]} numberOfLines={3}>
+            {item.body}
+          </Text>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            void (async () => {
+              try {
+                const saved = await savePost({ id: item.id, title: item.title, body: item.body });
+                Alert.alert(t.news.savedTitle, saved === 1 ? t.news.alertSaved : t.news.alertAlreadySaved);
+              } catch {
+                Alert.alert(t.news.savedTitle, t.news.alertCouldNotSave);
+              }
+            })();
+          }}
+          style={({ pressed }) => [
+            styles.saveButton,
+            {
+              backgroundColor: theme.colors.primary,
+              opacity: pressed ? 0.8 : 1
+            }
+          ]}
+        >
+          <Text style={[styles.saveButtonText, { color: theme.colors.background }]}>{t.news.saveOffline}</Text>
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -202,8 +231,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2
   },
+  cardRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  cardContent: { flex: 1, marginRight: 12 },
   postTitle: { fontSize: 17, fontWeight: '700', lineHeight: 23, marginBottom: 8 },
   postBody: { fontSize: 14, lineHeight: 21 },
+  saveButton: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, alignSelf: 'center' },
+  saveButtonText: { fontSize: 12, fontWeight: '700' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   emptyText: { fontSize: 16, textAlign: 'center' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },

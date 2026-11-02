@@ -56,6 +56,35 @@ export const translations = {
       }
     },
     campusHubTitle: 'Campus Hub',
+    tabFavorites: 'Избранное',
+    news: {
+      saveOffline: 'Сохранить офлайн',
+      saved: 'Сохранено',
+      alreadySaved: 'Уже сохранено',
+      couldNotSave: 'Не удалось сохранить',
+      savedTitle: 'Готово',
+      alertSaved: 'Пост сохранён в офлайн-архив.',
+      alertAlreadySaved: 'Пост уже сохранён.',
+      alertCouldNotSave: 'Не удалось сохранить пост.'
+    },
+    favorites: {
+      title: 'Сохранённые посты',
+      loading: 'Загрузка сохранённых...',
+      error: 'Не удалось загрузить сохранённые посты.',
+      empty: 'Нет сохранённых постов.',
+      all: 'Все',
+      unread: 'Непрочитанные',
+      unreadCount: 'Непрочитано: {count}',
+      read: 'Прочитано',
+      unreadStatus: 'Не прочитано',
+      toggleRead: 'Переключить статус',
+      delete: 'Удалить',
+      deleteTitle: 'Удалить пост?',
+      deleteMessage: 'Этот пост будет удалён из офлайн-архива.',
+      reloadIssue: 'Изменение сохранено, но список нужно обновить.',
+      deleteSuccess: 'Пост удалён.',
+      toggleSuccess: 'Статус обновлён.'
+    },
     eventRegistration: {
       title: 'Регистрация на мероприятие',
       subtitle: 'Заполните форму, чтобы зарегистрироваться на событие.',
@@ -205,6 +234,35 @@ export const translations = {
       }
     },
     campusHubTitle: 'Campus Hub',
+    tabFavorites: 'Favorites',
+    news: {
+      saveOffline: 'Save offline',
+      saved: 'Saved',
+      alreadySaved: 'Already saved',
+      couldNotSave: 'Could not save',
+      savedTitle: 'Success',
+      alertSaved: 'The post was saved offline.',
+      alertAlreadySaved: 'The post is already saved.',
+      alertCouldNotSave: 'The post could not be saved.'
+    },
+    favorites: {
+      title: 'Saved posts',
+      loading: 'Loading saved posts...',
+      error: 'Could not load saved posts.',
+      empty: 'No saved posts.',
+      all: 'All',
+      unread: 'Unread',
+      unreadCount: 'Unread: {count}',
+      read: 'Read',
+      unreadStatus: 'Unread',
+      toggleRead: 'Toggle read',
+      delete: 'Delete',
+      deleteTitle: 'Delete post?',
+      deleteMessage: 'This post will be removed from the offline archive.',
+      reloadIssue: 'The change was saved, but the list must be refreshed.',
+      deleteSuccess: 'Post deleted.',
+      toggleSuccess: 'Status updated.'
+    },
     eventRegistration: {
       title: 'Event registration',
       subtitle: 'Complete the form to register for the event.',
@@ -354,6 +412,35 @@ export const translations = {
       }
     },
     campusHubTitle: 'Campus Hub',
+    tabFavorites: 'Таңдаулылар',
+    news: {
+      saveOffline: 'Офлайн сақтау',
+      saved: 'Сақталды',
+      alreadySaved: 'Әзірге сақталған',
+      couldNotSave: 'Сақтау мүмкін емес',
+      savedTitle: 'Сәтті',
+      alertSaved: 'Пост офлайн архивіне сақталды.',
+      alertAlreadySaved: 'Пост бұрыннан сақталған.',
+      alertCouldNotSave: 'Постті сақтау мүмкін болмады.'
+    },
+    favorites: {
+      title: 'Сақталған посттар',
+      loading: 'Сақталғандар жүктелуде...',
+      error: 'Сақталған посттарды жүктеу мүмкін болмады.',
+      empty: 'Сақталған посттар жоқ.',
+      all: 'Барлығы',
+      unread: 'Оқылмаған',
+      unreadCount: 'Оқылмаған: {count}',
+      read: 'Оқылған',
+      unreadStatus: 'Оқылмаған',
+      toggleRead: 'Статус ауыстыру',
+      delete: 'Жою',
+      deleteTitle: 'Постты жоясыз ба?',
+      deleteMessage: 'Бұл пост офлайн архивінен жойылады.',
+      reloadIssue: 'Өзгеріс сақталды, бірақ тізімді жаңарту қажет.',
+      deleteSuccess: 'Пост жойылды.',
+      toggleSuccess: 'Статус жаңартылды.'
+    },
     eventRegistration: {
       title: 'Іс-шараға тіркелу',
       subtitle: 'Іс-шараға тіркелу үшін форманы толтырыңыз.',
