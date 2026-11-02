@@ -4,5 +4,8 @@ packages:
 allowBuilds:
   '@parcel/watcher': true
   '@scarf/scarf': false
-  unrs-resolver: true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
   sharp: false
+  unrs-resolver: true

@@ -2,6 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import DetailsScreen from '../screens/DetailsScreen';
+import EventRegistrationScreen from '../screens/EventRegistrationScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import { translations } from '../constants/translations';
@@ -31,6 +32,7 @@ export default function RootNavigator() {
       >
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="EventRegistration" component={EventRegistrationScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
         <Stack.Screen
           name="Details"

@@ -1,6 +1,7 @@
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
+  EventRegistration: undefined;
   Main: undefined;
   Details: { serviceId: string; title: string };
 };

@@ -43,6 +43,26 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           </View>
           <Text style={[styles.chevron, { color: theme.colors.primary }]}>{'\u203a'}</Text>
         </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('EventRegistration')}
+          style={({ pressed }) => [
+            styles.eventCard,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              opacity: pressed ? 0.78 : 1
+            }
+          ]}
+        >
+          <Text style={[styles.libraryIcon, { color: theme.colors.primary }]}>{'\u2705'}</Text>
+          <View style={styles.libraryCopy}>
+            <Text style={[styles.libraryTitle, { color: theme.colors.text }]}>{t.eventRegistration.title}</Text>
+            <Text style={[styles.librarySubtitle, { color: theme.colors.mutedText }]}>{t.eventRegistration.subtitle}</Text>
+          </View>
+          <Text style={[styles.chevron, { color: theme.colors.primary }]}>{'\u203a'}</Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -55,6 +75,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 36, fontWeight: '800', marginBottom: 10 },
   subtitle: { fontSize: 16, lineHeight: 24, marginBottom: 28 },
   libraryCard: { minHeight: 96, flexDirection: 'row', alignItems: 'center', padding: 18, borderWidth: 1, borderRadius: 14 },
+  eventCard: { minHeight: 96, flexDirection: 'row', alignItems: 'center', padding: 18, borderWidth: 1, borderRadius: 14, marginTop: 16 },
   libraryIcon: { fontSize: 30, marginRight: 16 },
   libraryCopy: { flex: 1 },
   libraryTitle: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
