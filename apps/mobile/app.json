@@ -27,7 +27,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow MyFirstApp to use your camera to take a profile photo.",
+          "photosPermission": "Allow MyFirstApp to access your photos to choose a profile photo."
+        }
+      ]
     ]
   }
 }

@@ -24,6 +24,24 @@ export const translations = {
         department: 'Кафедра',
         academicStatus: 'Академический статус'
       },
+      photo: {
+        photoLabel: 'Фото профиля',
+        noPhoto: 'Нет фото',
+        choosePhoto: 'Выбрать фото',
+        takePhoto: 'Сделать фото',
+        deletePhoto: 'Удалить фото',
+        deleteTitle: 'Удалить фото?',
+        deleteMessage: 'Фото будет удалено из профиля. Оригинал в галерее не изменится.',
+        cancel: 'Отмена',
+        delete: 'Удалить',
+        cameraPermissionDenied: 'Доступ к камере запрещён.',
+        openSettings: 'Открыть настройки',
+        photoPickerError: 'Не удалось открыть фото.',
+        fileTooLarge: 'Размер файла превышает 5 МБ.',
+        fileSizeUnknown: 'Размер файла неизвестен.',
+        dimensions: (width: number, height: number) => `Размер изображения: ${width} x ${height}`,
+        fileSize: (size: string) => `Размер файла: ${size} МБ`
+      },
       values: {
         gender: { male: 'Мужской', female: 'Женский' },
         studyForm: { fullTime: 'Очная', partTime: 'Заочная' },
@@ -202,6 +220,24 @@ export const translations = {
         department: 'Department',
         academicStatus: 'Academic status'
       },
+      photo: {
+        photoLabel: 'Profile photo',
+        noPhoto: 'No photo',
+        choosePhoto: 'Choose photo',
+        takePhoto: 'Take photo',
+        deletePhoto: 'Delete photo',
+        deleteTitle: 'Delete photo?',
+        deleteMessage: 'The photo will be removed from your profile. The original in your gallery will not be changed.',
+        cancel: 'Cancel',
+        delete: 'Delete',
+        cameraPermissionDenied: 'Camera access was denied.',
+        openSettings: 'Open settings',
+        photoPickerError: 'Could not open photo.',
+        fileTooLarge: 'The file is larger than 5 MB.',
+        fileSizeUnknown: 'File size is unknown.',
+        dimensions: (width: number, height: number) => `Image dimensions: ${width} x ${height}`,
+        fileSize: (size: string) => `File size: ${size} MB`
+      },
       values: {
         gender: { male: 'Male', female: 'Female' },
         studyForm: { fullTime: 'Full-time', partTime: 'Part-time' },
@@ -379,6 +415,24 @@ export const translations = {
         institute: 'Институт',
         department: 'Кафедра',
         academicStatus: 'Академиялық мәртебесі'
+      },
+      photo: {
+        photoLabel: 'Профиль фотосы',
+        noPhoto: 'Фото жоқ',
+        choosePhoto: 'Фото таңдау',
+        takePhoto: 'Фото түсіру',
+        deletePhoto: 'Фотосуретті жою',
+        deleteTitle: 'Фотосуретті жоясыз ба?',
+        deleteMessage: 'Фото профильден жойылады. Галереядағы түпнұсқаға әсер етпейді.',
+        cancel: 'Болдырмау',
+        delete: 'Жою',
+        cameraPermissionDenied: 'Камераға кіруге рұқсат берілмеді.',
+        openSettings: 'Баптауларды ашу',
+        photoPickerError: 'Фотосуретті ашу мүмкін болмады.',
+        fileTooLarge: 'Файл өлшемі 5 МБ-тан үлкен.',
+        fileSizeUnknown: 'Файл өлшемі белгісіз.',
+        dimensions: (width: number, height: number) => `Сурет өлшемдері: ${width} x ${height}`,
+        fileSize: (size: string) => `Файл өлшемі: ${size} МБ`
       },
       values: {
         gender: { male: 'Ер', female: 'Әйел' },

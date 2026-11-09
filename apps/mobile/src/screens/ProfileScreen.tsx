@@ -1,11 +1,10 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-import * as ImagePicker from 'expo-image-picker';
 import { useState, type ReactNode } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type KeyboardTypeOptions } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type KeyboardTypeOptions } from 'react-native';
+import ProfilePhoto from '../components/ProfilePhoto';
 import TopActions from '../components/TopActions';
 import { translations } from '../constants/translations';
 import { useApp } from '../context/AppContext';
@@ -108,29 +107,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       && date.getMonth() === month - 1
       && date.getDate() === day
       && date <= today;
-  };
-
-  const handleChangePhoto = async () => {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert(t.errorTitle, profileText.validation.photoPermissionDenied);
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        updateDraft('photoUri', result.assets[0].uri);
-      }
-    } catch {
-      Alert.alert(t.errorTitle, profileText.validation.photoPickerError);
-    }
   };
 
   const handleSave = async () => {
@@ -252,18 +228,12 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         <TopActions showLogout={false} />
 
       <Text style={[styles.screenTitle, { color: theme.colors.text }]}>{profileText.studentTitle}</Text>
+      <ProfilePhoto
+        value={draftProfile.photoUri}
+        onChange={(photoUri) => updateDraft('photoUri', photoUri)}
+        editable={isEditing}
+      />
       <View style={styles.profileHeader}>
-        {draftProfile.photoUri ? (
-          <Image
-            accessibilityLabel={profileText.fields.photo}
-            source={{ uri: draftProfile.photoUri }}
-            style={[styles.avatar, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-          />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-            <MaterialCommunityIcons name="account" size={54} color={theme.colors.mutedText} />
-          </View>
-        )}
         <View style={styles.headerInfo}>
           <Text style={[styles.headerName, { color: theme.colors.text }]}>{draftProfile.fullName.trim() || profileText.emptyValue}</Text>
           <Text style={[styles.headerDetail, { color: theme.colors.mutedText }]}>{draftProfile.group.trim() || profileText.emptyValue}</Text>
@@ -272,15 +242,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           </Text>
         </View>
       </View>
-      {isEditing ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => { void handleChangePhoto(); }}
-          style={[styles.photoButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-        >
-          <Text style={[styles.photoButtonText, { color: theme.colors.primary }]}>{profileText.actions.changePhoto}</Text>
-        </Pressable>
-      ) : null}
 
       <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{profileText.sections.personalData}</Text>
       {renderTextField(profileText.fields.fullName, draftProfile.fullName, (value) => updateDraft('fullName', value))}
@@ -405,8 +366,6 @@ const styles = StyleSheet.create({
   container: { flexGrow: 1, gap: 10 },
   screenTitle: { fontSize: 28, fontWeight: '800', marginBottom: 8 },
   profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 18, marginBottom: 16 },
-  avatar: { width: 110, height: 110, borderRadius: 55, borderWidth: 1 },
-  avatarPlaceholder: { justifyContent: 'center', alignItems: 'center' },
   headerInfo: { flex: 1, gap: 6 },
   headerName: { fontSize: 21, fontWeight: '800' },
   headerDetail: { fontSize: 15 },
@@ -422,8 +381,6 @@ const styles = StyleSheet.create({
   choiceList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   choiceButton: { minHeight: 36, justifyContent: 'center', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   choiceText: { fontSize: 13, fontWeight: '600' },
-  photoButton: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 8 },
-  photoButtonText: { fontSize: 14, fontWeight: '700' },
   actions: { gap: 10, marginTop: 20, marginBottom: 10 },
   actionButton: { minHeight: 50, justifyContent: 'center', alignItems: 'center', borderRadius: 12, paddingHorizontal: 18 },
   secondaryAction: { borderWidth: 1 },
