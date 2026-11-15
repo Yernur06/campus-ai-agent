@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { INVALID_CREDENTIALS_MESSAGE } from './auth.constants';
 import { AuthService } from './auth.service';
 
@@ -63,7 +64,15 @@ describe('AuthService', () => {
         return values[key];
       },
     } as ConfigService;
-    service = new AuthService(prisma, new JwtService(), configService);
+    const auditService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AuditService;
+    service = new AuthService(
+      prisma,
+      new JwtService(),
+      configService,
+      auditService,
+    );
   });
 
   it('authenticates a valid user and stores a refresh token hash', async () => {

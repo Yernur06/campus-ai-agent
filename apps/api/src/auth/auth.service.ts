@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AuditActorType, UserRole } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { INVALID_CREDENTIALS_MESSAGE } from './auth.constants';
 import {
   AuthenticationResponse,
@@ -55,6 +56,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly auditService: AuditService,
   ) {
     this.accessTokenTtlSeconds = durationInSeconds(
       configService.getOrThrow<string>('JWT_EXPIRES_IN'),
@@ -67,6 +69,7 @@ export class AuthService {
   async login(
     email: string,
     password: string,
+    ip?: string,
   ): Promise<AuthenticationResponse> {
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -86,6 +89,15 @@ export class AuthService {
       !user.isActive ||
       !(await verify(user.passwordHash, password))
     ) {
+      await this.auditService.log({
+        actorId: null,
+        actorType: AuditActorType.SYSTEM,
+        action: 'AUTH_LOGIN_FAILURE',
+        entityType: 'User',
+        before: { email },
+        confirmed: false,
+        ip,
+      });
       throw new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE);
     }
 
@@ -107,23 +119,25 @@ export class AuthService {
           ),
         },
       });
-      await transaction.auditLog.create({
-        data: {
-          actorId: user.id,
-          actorType: AuditActorType.USER,
-          action: 'AUTH_LOGIN',
-          entityType: 'User',
-          entityId: user.id,
-          after: { lastLoginAt: now.toISOString() },
-          confirmed: true,
-        },
-      });
+    });
+    await this.auditService.log({
+      actorId: user.id,
+      actorType: AuditActorType.USER,
+      action: 'AUTH_LOGIN',
+      entityType: 'User',
+      entityId: user.id,
+      after: { lastLoginAt: now.toISOString() },
+      confirmed: true,
+      ip,
     });
 
     return { ...tokens, user: responseUser };
   }
 
-  async refresh(refreshToken: string): Promise<AuthenticationResponse> {
+  async refresh(
+    refreshToken: string,
+    ip?: string,
+  ): Promise<AuthenticationResponse> {
     let payload: JwtRefreshPayload;
     try {
       payload = await this.jwtService.verifyAsync<JwtRefreshPayload>(
@@ -206,18 +220,17 @@ export class AuthService {
           expiresAt: nextRefreshExpiresAt,
         },
       });
-      await transaction.auditLog.create({
-        data: {
-          actorId: storedToken.userId,
-          actorType: AuditActorType.USER,
-          action: 'AUTH_REFRESH',
-          entityType: 'RefreshToken',
-          entityId: storedToken.id,
-          before: { revoked: false },
-          after: { revoked: true, rotated: true },
-          confirmed: true,
-        },
-      });
+    });
+    await this.auditService.log({
+      actorId: storedToken.userId,
+      actorType: AuditActorType.USER,
+      action: 'AUTH_REFRESH',
+      entityType: 'RefreshToken',
+      entityId: storedToken.id,
+      before: { revoked: false },
+      after: { revoked: true, rotated: true },
+      confirmed: true,
+      ip,
     });
 
     return { ...tokens, user };
@@ -226,9 +239,11 @@ export class AuthService {
   async logout(
     refreshToken: string,
     authenticatedUserId: string,
+    ip?: string,
   ): Promise<{ success: true }> {
+    let revoked = 0;
     await this.prisma.$transaction(async (transaction) => {
-      const revoked = await transaction.refreshToken.updateMany({
+      const result = await transaction.refreshToken.updateMany({
         where: {
           userId: authenticatedUserId,
           tokenHash: hashToken(refreshToken),
@@ -236,20 +251,20 @@ export class AuthService {
         },
         data: { revokedAt: new Date() },
       });
-      if (revoked.count > 0) {
-        await transaction.auditLog.create({
-          data: {
-            actorId: authenticatedUserId,
-            actorType: AuditActorType.USER,
-            action: 'AUTH_LOGOUT',
-            entityType: 'RefreshToken',
-            before: { revoked: false },
-            after: { revoked: true },
-            confirmed: true,
-          },
-        });
-      }
+      revoked = result.count;
     });
+    if (revoked > 0) {
+      await this.auditService.log({
+        actorId: authenticatedUserId,
+        actorType: AuditActorType.USER,
+        action: 'AUTH_LOGOUT',
+        entityType: 'RefreshToken',
+        before: { revoked: false },
+        after: { revoked: true },
+        confirmed: true,
+        ip,
+      });
+    }
     return { success: true };
   }
 

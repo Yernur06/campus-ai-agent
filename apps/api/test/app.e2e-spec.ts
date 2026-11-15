@@ -76,6 +76,9 @@ describe('Authentication and RBAC (e2e)', () => {
       user: {
         findUnique: jest.fn(async () => databaseUser),
       },
+      auditLog: {
+        create: jest.fn().mockResolvedValue({}),
+      },
       $transaction: jest.fn(
         async (
           operation: (value: typeof transactionMock) => Promise<unknown>,
