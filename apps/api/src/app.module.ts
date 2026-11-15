@@ -6,6 +6,8 @@ import { AppService } from './app.service';
 import { validateEnvironment } from './config/env.validation';
 import { HealthController } from './health.controller';
 import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { PrismaModule } from './prisma/prisma.module';
       validate: validateEnvironment,
     }),
     PrismaModule,
+    AuthModule,
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 5 }]),
     LoggerModule.forRoot({
       pinoHttp: {
         ...(process.env.NODE_ENV !== 'production' && {
