@@ -1,33 +1,45 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import { hash } from 'argon2';
-import { AcademicStatus, CampusObjectType, CurriculumItemType, DayOfWeek, Gender, GradeType, LessonType, NotificationPriority, NotificationType, Prisma, PrismaClient, ScheduleStatus, StudyForm, StudyLanguage, UserRole } from '@prisma/client';
+import { config as loadDotenv } from 'dotenv';
+import { resolve } from 'node:path';
+import { Pool } from 'pg';
+import {
+  AcademicStatus,
+  CampusObjectType,
+  CurriculumItemType,
+  DayOfWeek,
+  EnrollmentStatus,
+  Gender,
+  GradeType,
+  LessonType,
+  NotificationPriority,
+  NotificationType,
+  ScheduleStatus,
+  StudyForm,
+  StudyLanguage,
+  UserRole,
+} from '../src/generated/prisma/enums';
+import { Prisma, PrismaClient } from '../src/generated/prisma/client';
 
-const prisma = new PrismaClient();
-
-const demoPassword = process.env.SEED_DEMO_PASSWORD?.trim();
-
-if (!demoPassword) {
-  throw new Error(
-    'Missing required environment variable SEED_DEMO_PASSWORD. Set it in apps/api/.env before running Prisma seed.'
-  );
-}
+let prisma: PrismaClient;
+let demoPasswordHash: string;
 
 const toDecimal = (value: string | number) => new Prisma.Decimal(String(value));
 const toDate = (value: string) => new Date(value);
 const toTime = (value: string) => new Date(`1970-01-01T${value}:00Z`);
 
 async function upsertUser(email: string, role: UserRole, fullName: string) {
-  const passwordHash = await hash(demoPassword);
   return prisma.user.upsert({
     where: { email },
     update: {
-      passwordHash,
+      passwordHash: demoPasswordHash,
       role,
       isActive: true,
       updatedAt: new Date()
     },
     create: {
       email,
-      passwordHash,
+      passwordHash: demoPasswordHash,
       role,
       isActive: true
     }
@@ -77,30 +89,51 @@ async function ensureDocumentTypes() {
 }
 
 async function ensureSemesterBlocks() {
-  const currentYear = new Date().getFullYear();
-  const semesters = [
-    { number: 1, startDate: toDate(`${currentYear - 3}-09-01`), endDate: toDate(`${currentYear - 2}-01-31`), isCurrent: false },
-    { number: 2, startDate: toDate(`${currentYear - 2}-02-01`), endDate: toDate(`${currentYear - 2}-06-30`), isCurrent: false },
-    { number: 3, startDate: toDate(`${currentYear - 2}-09-01`), endDate: toDate(`${currentYear - 1}-01-31`), isCurrent: false },
-    { number: 4, startDate: toDate(`${currentYear - 1}-02-01`), endDate: toDate(`${currentYear - 1}-06-30`), isCurrent: false },
-    { number: 5, startDate: toDate(`${currentYear - 1}-09-01`), endDate: toDate(`${currentYear}-01-31`), isCurrent: true },
-    { number: 6, startDate: toDate(`${currentYear}-02-01`), endDate: toDate(`${currentYear}-06-30`), isCurrent: false },
-    { number: 7, startDate: toDate(`${currentYear}-09-01`), endDate: toDate(`${currentYear + 1}-01-31`), isCurrent: false },
-    { number: 8, startDate: toDate(`${currentYear + 1}-02-01`), endDate: toDate(`${currentYear + 1}-06-30`), isCurrent: false }
-  ];
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const firstAcademicYear = currentYear - 3;
+  const academicStartYear =
+    now.getMonth() >= 6 ? currentYear : currentYear - 1;
+  const currentSemesterNumber =
+    (academicStartYear - firstAcademicYear) * 2 +
+    (now.getMonth() >= 6 ? 1 : 2);
+  const semesters = Array.from({ length: 8 }, (_, index) => {
+    const number = index + 1;
+    const isFallSemester = number % 2 === 1;
+    const startYear =
+      firstAcademicYear + Math.floor(index / 2) + (isFallSemester ? 0 : 1);
+    const endYear = startYear + (isFallSemester ? 1 : 0);
+    const startDate = toDate(
+      `${startYear}-${isFallSemester ? '09-01' : '02-01'}`,
+    );
+    const endDate = toDate(
+      `${endYear}-${isFallSemester ? '01-31' : '06-30'}`,
+    );
 
-  const semesterRecords: Record<number, { id: string; number: number }> = {};
+    return {
+      number,
+      startDate,
+      endDate,
+      isCurrent: number === currentSemesterNumber,
+    };
+  });
+
+  const semesterRecords: Record<
+    number,
+    { id: string; number: number; isCurrent: boolean }
+  > = {};
 
   for (const semester of semesters) {
     const existing = await prisma.semester.findFirst({ where: { number: semester.number } });
     if (existing) {
-      semesterRecords[semester.number] = existing;
-      if (existing.isCurrent !== semester.isCurrent) {
-        await prisma.semester.update({
-          where: { id: existing.id },
-          data: { isCurrent: semester.isCurrent, startDate: semester.startDate, endDate: semester.endDate }
-        });
-      }
+      semesterRecords[semester.number] = await prisma.semester.update({
+        where: { id: existing.id },
+        data: {
+          isCurrent: semester.isCurrent,
+          startDate: semester.startDate,
+          endDate: semester.endDate,
+        },
+      });
       continue;
     }
 
@@ -113,13 +146,6 @@ async function ensureSemesterBlocks() {
       }
     });
     semesterRecords[semester.number] = created;
-  }
-
-  for (const semester of Object.values(semesterRecords)) {
-    await prisma.semester.update({
-      where: { id: semester.id },
-      data: { updatedAt: new Date() }
-    });
   }
 
   return semesterRecords;
@@ -184,14 +210,14 @@ async function ensureProgram(departmentId: string) {
 async function ensureGroups(programId: string) {
   const firstGroup = await prisma.group.upsert({
     where: { code: 'SE-2023-A' },
-    update: { programId, name: 'Software Engineering Group A', updatedAt: new Date() },
-    create: { code: 'SE-2023-A', name: 'Software Engineering Group A', programId }
+    update: { programId, name: 'Software Engineering Group A', admissionYear: 2023, updatedAt: new Date() },
+    create: { code: 'SE-2023-A', name: 'Software Engineering Group A', programId, admissionYear: 2023 }
   });
 
   const secondGroup = await prisma.group.upsert({
     where: { code: 'SE-2023-B' },
-    update: { programId, name: 'Software Engineering Group B', updatedAt: new Date() },
-    create: { code: 'SE-2023-B', name: 'Software Engineering Group B', programId }
+    update: { programId, name: 'Software Engineering Group B', admissionYear: 2023, updatedAt: new Date() },
+    create: { code: 'SE-2023-B', name: 'Software Engineering Group B', programId, admissionYear: 2023 }
   });
 
   return { firstGroup, secondGroup };
@@ -288,7 +314,7 @@ async function seedUsersAndStudents(groups: { firstGroup: { id: string }; second
       fullName: 'Демо студент',
       groupId: groups.firstGroup.id,
       programId,
-      course: 3,
+      course: 4,
       studyForm: StudyForm.FULL_TIME,
       studyLanguage: StudyLanguage.KK,
       gender: Gender.MALE,
@@ -303,7 +329,7 @@ async function seedUsersAndStudents(groups: { firstGroup: { id: string }; second
       fullName: 'Демо студент',
       groupId: groups.firstGroup.id,
       programId,
-      course: 3,
+      course: 4,
       studyForm: StudyForm.FULL_TIME,
       studyLanguage: StudyLanguage.KK,
       gender: Gender.MALE,
@@ -549,9 +575,24 @@ async function ensureClassrooms() {
   return classroomMap;
 }
 
-async function ensureCurrentSemesterCourses(semesterId: string, groups: { firstGroup: { id: string }; secondGroup: { id: string } }, teacherIds: string[], classroomMap: Record<string, { id: string }>) {
-  const courseSubjects = ['DS501', 'CLOUD501', 'DEV501', 'SEC501'];
-  const courseData: Array<{ course: { id: string; groupId: string; subjectId: string }; groupId: string }> = [];
+async function ensureCurrentSemesterCourses(
+  semesterNumber: number,
+  semesterId: string,
+  groups: { firstGroup: { id: string }; secondGroup: { id: string } },
+  teacherIds: string[],
+  classroomMap: Record<string, { id: string }>,
+): Promise<void> {
+  const courseSubjectsBySemester: Record<number, string[]> = {
+    5: ['DS501', 'CLOUD501', 'DEV501', 'SEC501'],
+    6: ['ML601', 'DB601', 'TEST601', 'HCI601'],
+    7: ['CAP701', 'PP701', 'ROBOT701', 'ENT701', 'BUS701'],
+    8: ['GRAD801', 'THESIS801', 'RM801', 'ETH801', 'INN801'],
+  };
+  const courseSubjects = courseSubjectsBySemester[semesterNumber] ?? [];
+  const courseData: Array<{
+    course: { id: string; groupId: string; subjectId: string; teacherId: string };
+    groupId: string;
+  }> = [];
 
   for (const groupEntry of [groups.firstGroup, groups.secondGroup]) {
     for (const subjectCode of courseSubjects) {
@@ -579,33 +620,44 @@ async function ensureCurrentSemesterCourses(semesterId: string, groups: { firstG
     const entry = courseData[index];
     const day = [DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY][index % 3];
     const startTimes = ['09:00', '11:00', '13:00'];
-    const roomKey = Object.keys(classroomMap)[index % Object.keys(classroomMap).length];
+    const roomKeys = Object.keys(classroomMap);
+    const roomKey = roomKeys[index % roomKeys.length];
     const classroomId = classroomMap[roomKey].id;
-
-    await prisma.scheduleEntry.upsert({
-      where: {
-        id: undefined
-      },
-      update: {},
-      create: {
-        courseId: entry.course.id,
-        classroomId,
-        teacherId: teacherIds[index % teacherIds.length],
-        groupId: entry.groupId,
-        dayOfWeek: day,
-        startTime: toTime(startTimes[index % startTimes.length]),
-        endTime: toTime(startTimes[index % startTimes.length].split(':').reduce((p, current) => {
-          const minutes = Number(current);
-          return `${String(Math.floor((minutes + 90) / 60)).padStart(2, '0')}:${String((minutes + 90) % 60).padStart(2, '0')}`;
-        }, '09:00')),
-        lessonType: index % 2 === 0 ? LessonType.LECTURE : LessonType.PRACTICE,
-        status: ScheduleStatus.ACTIVE
-      }
+    const startTimeText = startTimes[index % startTimes.length];
+    const [startHour, startMinute] = startTimeText.split(':').map(Number);
+    const endMinuteTotal = startHour * 60 + startMinute + 90;
+    const endTimeText = `${String(Math.floor(endMinuteTotal / 60)).padStart(2, '0')}:${String(endMinuteTotal % 60).padStart(2, '0')}`;
+    const startTime = toTime(startTimeText);
+    const scheduleData = {
+      courseId: entry.course.id,
+      classroomId,
+      teacherId: entry.course.teacherId,
+      groupId: entry.groupId,
+      dayOfWeek: day,
+      startTime,
+      endTime: toTime(endTimeText),
+      lessonType: index % 2 === 0 ? LessonType.LECTURE : LessonType.PRACTICE,
+      status: ScheduleStatus.ACTIVE,
+    };
+    const existing = await prisma.scheduleEntry.findFirst({
+      where: { courseId: entry.course.id, dayOfWeek: day, startTime },
     });
+    if (existing) {
+      await prisma.scheduleEntry.update({
+        where: { id: existing.id },
+        data: scheduleData,
+      });
+    } else {
+      await prisma.scheduleEntry.create({ data: scheduleData });
+    }
   }
 }
 
-async function ensurePastSemesterGrades(studentRecords: Array<{ id: string; groupId: string }>, semesterRecords: Record<number, { id: string }>, groupIds: string[], courseAssignments: Record<string, string[]>) {
+async function ensurePastSemesterGrades(
+  studentRecords: Array<{ id: string; groupId: string }>,
+  semesterRecords: Record<number, { id: string }>,
+  courseAssignments: Record<string, string[]>,
+) {
   const completedSemesterNumbers = [1, 2, 3, 4];
 
   for (const student of studentRecords) {
@@ -615,14 +667,23 @@ async function ensurePastSemesterGrades(studentRecords: Array<{ id: string; grou
 
       for (let index = 0; index < Math.min(coursesForGroup.length, 3); index += 1) {
         const courseId = coursesForGroup[index];
-        const existingEnrollment = await prisma.enrollment.findFirst({ where: { studentId: student.id, courseId, semesterId } });
-        const enrollment = existingEnrollment ?? await prisma.enrollment.create({
-          data: {
+        const status =
+          index % 5 === 0 ? EnrollmentStatus.FAILED : EnrollmentStatus.PASSED;
+        const enrollment = await prisma.enrollment.upsert({
+          where: {
+            studentId_courseId_semesterId: {
+              studentId: student.id,
+              courseId,
+              semesterId,
+            },
+          },
+          update: { status },
+          create: {
             studentId: student.id,
             courseId,
             semesterId,
-            status: index % 5 === 0 ? 'FAILED' as never : 'PASSED' as never
-          }
+            status,
+          },
         });
 
         const finalGrade = index % 5 === 0 ? 'F' : ['A', 'B', 'C', 'B+'][index % 4];
@@ -644,8 +705,58 @@ async function ensurePastSemesterGrades(studentRecords: Array<{ id: string; grou
     }
   }
 
-  for (const groupId of groupIds) {
-    await prisma.enrollment.findMany({ where: { student: { groupId } } });
+}
+
+async function ensureCurrentSemesterEnrollments(
+  studentId: string,
+  groupId: string,
+  semesterId: string,
+): Promise<void> {
+  const courses = await prisma.course.findMany({
+    where: { groupId, semesterId },
+    orderBy: { subject: { code: 'asc' } },
+    select: { id: true },
+  });
+
+  for (const [index, course] of courses.entries()) {
+    const enrollment = await prisma.enrollment.upsert({
+      where: {
+        studentId_courseId_semesterId: {
+          studentId,
+          courseId: course.id,
+          semesterId,
+        },
+      },
+      update: { status: EnrollmentStatus.IN_PROGRESS },
+      create: {
+        studentId,
+        courseId: course.id,
+        semesterId,
+        status: EnrollmentStatus.IN_PROGRESS,
+      },
+    });
+    const score = ['84.00', '76.00', '91.00', '88.00', '79.00'][index % 5];
+
+    await prisma.grade.upsert({
+      where: {
+        enrollmentId_type: {
+          enrollmentId: enrollment.id,
+          type: GradeType.CURRENT,
+        },
+      },
+      update: {
+        score: toDecimal(score),
+        maxScore: toDecimal('100.00'),
+        letter: null,
+        points: null,
+      },
+      create: {
+        enrollmentId: enrollment.id,
+        type: GradeType.CURRENT,
+        score: toDecimal(score),
+        maxScore: toDecimal('100.00'),
+      },
+    });
   }
 }
 
@@ -654,7 +765,7 @@ async function ensureNotifications(users: Array<{ id: string; email: string }>) 
     { email: 'admin@campus.kz', type: NotificationType.SYSTEM, title: 'System backup completed', body: 'Daily database backup was completed successfully.', priority: NotificationPriority.HIGH },
     { email: 'student@campus.kz', type: NotificationType.GRADE, title: 'Grade updated', body: 'Your final grade was published in the student portal.', priority: NotificationPriority.NORMAL },
     { email: 'student1@campus.kz', type: NotificationType.SCHEDULE, title: 'Schedule changed', body: 'Applied mathematics lecture moved to room A-204.', priority: NotificationPriority.NORMAL },
-    { email: 'teacher1@campus.kz', type: NotificationType.APPLICATION, title: 'Application review', body: 'Two student applications are awaiting your review.', priority: NotificationPriority.HIGH }
+    { email: 'aigul.nurmaganbetova@campus.kz', type: NotificationType.APPLICATION, title: 'Application review', body: 'Two student applications are awaiting your review.', priority: NotificationPriority.HIGH }
   ];
 
   for (const entry of notificationSeeds) {
@@ -744,13 +855,22 @@ async function seed() {
   await ensureGradeScale();
   await ensureDocumentTypes();
 
-  const currentSemester = semesterRecords[5];
+  const currentSemester = Object.values(semesterRecords).find(
+    (semester) => semester.isCurrent,
+  );
+  if (!currentSemester) {
+    throw new Error('Unable to determine the current semester for seed data.');
+  }
   const classroomMap = await ensureClassrooms();
   const teacherIds = teachers.map((teacher) => teacher.id);
 
-  if (currentSemester) {
-    await ensureCurrentSemesterCourses(currentSemester.id, groups, teacherIds, classroomMap);
-  }
+  await ensureCurrentSemesterCourses(
+    currentSemester.number,
+    currentSemester.id,
+    groups,
+    teacherIds,
+    classroomMap,
+  );
 
   const courseAssignments: Record<string, string[]> = {};
   for (const semesterNumber of [1, 2, 3, 4]) {
@@ -786,40 +906,168 @@ async function seed() {
     }
   }
 
-  await ensurePastSemesterGrades(studentRecords, semesterRecords, [groups.firstGroup.id, groups.secondGroup.id], courseAssignments);
+  await ensurePastSemesterGrades(
+    studentRecords,
+    semesterRecords,
+    courseAssignments,
+  );
 
-  const demoStudent = await prisma.student.findUnique({ where: { studentCode: 'ST-DEMO' } });
-  if (demoStudent) {
-    const transcriptType = await prisma.documentType.findUnique({ where: { name: 'Transcript' } });
-    if (transcriptType) {
-      const existingDocument = await prisma.document.findFirst({
-        where: { studentId: demoStudent.id, documentTypeId: transcriptType.id, title: 'Transcript 2024' }
+  const demoStudentRecord = studentRecords.find(
+    (student) => student.email === 'student@campus.kz',
+  );
+  if (!demoStudentRecord) {
+    throw new Error('Seeded demo student record was not created.');
+  }
+  await ensureCurrentSemesterEnrollments(
+    demoStudentRecord.id,
+    groups.firstGroup.id,
+    currentSemester.id,
+  );
+
+  const demoStudent = await prisma.student.findUnique({
+    where: { id: demoStudentRecord.id },
+  });
+  if (!demoStudent) {
+    throw new Error('Seeded demo student could not be read back from the database.');
+  }
+  const transcriptType = await prisma.documentType.findUnique({
+    where: { name: 'Transcript' },
+  });
+  if (transcriptType) {
+    const existingDocument = await prisma.document.findFirst({
+      where: {
+        studentId: demoStudent.id,
+        documentTypeId: transcriptType.id,
+        title: 'Transcript 2024',
+      },
+    });
+
+    if (!existingDocument) {
+      await prisma.document.create({
+        data: {
+          studentId: demoStudent.id,
+          documentTypeId: transcriptType.id,
+          title: 'Transcript 2024',
+          fileUrl: 'https://example.com/documents/transcript-demo.pdf',
+          issuedAt: toDate('2024-06-25'),
+        },
       });
-
-      if (!existingDocument) {
-        await prisma.document.create({
-          data: {
-            studentId: demoStudent.id,
-            documentTypeId: transcriptType.id,
-            title: 'Transcript 2024',
-            fileUrl: 'https://example.com/documents/transcript-demo.pdf',
-            issuedAt: toDate('2024-06-25')
-          }
-        });
-      }
     }
   }
 
   await ensureCampusObjects(csDepartment.id);
+  const demoUser = await prisma.user.findUnique({
+    where: { email: 'student@campus.kz' },
+    select: { id: true },
+  });
+  if (!demoUser) {
+    throw new Error('Seeded demo student user could not be read back from the database.');
+  }
   await ensureNotifications([
     { id: adminUser.id, email: 'admin@campus.kz' },
-    { id: demoStudent?.id ?? '', email: 'student@campus.kz' }
+    { id: demoUser.id, email: 'student@campus.kz' },
   ]);
-
-  await prisma.$disconnect();
 }
 
-seed().catch((error: Error) => {
-  console.error('Prisma seed failed:', error.message);
-  process.exitCode = 1;
-});
+async function printDatabaseSummary(): Promise<void> {
+  const [
+    users,
+    students,
+    teachers,
+    groups,
+    subjects,
+    courses,
+    scheduleEntries,
+    grades,
+    notifications,
+    campusObjects,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.student.count(),
+    prisma.teacher.count(),
+    prisma.group.count(),
+    prisma.subject.count(),
+    prisma.course.count(),
+    prisma.scheduleEntry.count(),
+    prisma.grade.count(),
+    prisma.notification.count(),
+    prisma.campusObject.count(),
+  ]);
+
+  console.log('Seed complete. Database row counts:');
+  console.log(`  Users: ${users}`);
+  console.log(`  Students: ${students}`);
+  console.log(`  Teachers: ${teachers}`);
+  console.log(`  Groups: ${groups}`);
+  console.log(`  Subjects: ${subjects}`);
+  console.log(`  Courses: ${courses}`);
+  console.log(`  ScheduleEntries: ${scheduleEntries}`);
+  console.log(`  Grades: ${grades}`);
+  console.log(`  Notifications: ${notifications}`);
+  console.log(`  CampusObjects: ${campusObjects}`);
+}
+
+function getDatabaseTarget(databaseUrl: string): string {
+  const parsedUrl = new URL(databaseUrl);
+  const defaultPort =
+    parsedUrl.protocol === 'postgresql:' || parsedUrl.protocol === 'postgres:'
+      ? '5432'
+      : '';
+  const host =
+    parsedUrl.hostname.includes(':')
+      ? `[${parsedUrl.hostname}]`
+      : parsedUrl.hostname;
+  const database = decodeURIComponent(parsedUrl.pathname.replace(/^\/+/, ''));
+
+  if (!host || !database) {
+    throw new Error('DATABASE_URL must include a database host and database name.');
+  }
+
+  return `${host}:${parsedUrl.port || defaultPort}/${database}`;
+}
+
+async function main(): Promise<void> {
+  try {
+    const envPath = resolve(__dirname, '..', '.env');
+    const envResult = loadDotenv({ path: envPath });
+    if (envResult.error) {
+      throw new Error(`Unable to load apps/api/.env: ${envResult.error.message}`);
+    }
+
+    const databaseUrl = process.env.DATABASE_URL?.trim();
+    if (!databaseUrl) {
+      throw new Error(
+        'Missing required DATABASE_URL in apps/api/.env; refusing to seed without a configured database.',
+      );
+    }
+    console.log(`Seeding database: ${getDatabaseTarget(databaseUrl)}`);
+    const demoPassword = process.env.SEED_DEMO_PASSWORD?.trim();
+    if (!demoPassword || demoPassword.length < 8) {
+      throw new Error(
+        'SEED_DEMO_PASSWORD in apps/api/.env must be at least 8 characters.',
+      );
+    }
+
+    prisma = new PrismaClient({
+      adapter: new PrismaPg(new Pool({ connectionString: databaseUrl })),
+    });
+    demoPasswordHash = await hash(demoPassword);
+
+    await seed();
+    await printDatabaseSummary();
+  } catch (error) {
+    console.error('Prisma seed failed:', error);
+    process.exitCode = 1;
+  } finally {
+    if (typeof prisma !== 'undefined') {
+      try {
+        await prisma.$disconnect();
+      } catch (error) {
+        console.error('Failed to disconnect Prisma after seeding:', error);
+        process.exitCode = 1;
+      }
+    }
+  }
+}
+
+void main();
